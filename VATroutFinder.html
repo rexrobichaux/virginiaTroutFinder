@@ -1,0 +1,271 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Virginia Trout Water Viewer - Rex Robichaux, May 2021</title>
+  <style>
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+	#titleDiv {
+      font-weight: 400;
+      font-style: normal;
+      font-size: 1.2019rem;
+      padding: 5px;
+     }
+  </style>
+  
+    <link rel="stylesheet" href="https://js.arcgis.com/4.18/esri/themes/dark-green/main.css">
+  <script src="https://js.arcgis.com/4.18/"></script>
+  
+  <script>  
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/widgets/Search",
+      "esri/layers/FeatureLayer",
+      "esri/widgets/Editor",
+      "esri/widgets/BasemapToggle",
+      "esri/widgets/BasemapGallery",
+      "esri/widgets/Expand",
+      "esri/widgets/Compass",
+      "esri/widgets/LayerList",
+      "esri/widgets/Sketch",
+      "esri/layers/GraphicsLayer",
+	  "esri/geometry/geometryEngine",
+      "esri/geometry/support/webMercatorUtils",
+	  "esri/widgets/Legend",
+	  "esri/widgets/Locate",
+      "esri/geometry/Polygon"
+    ], function(Map, MapView, Search, FeatureLayer, Editor, BasemapToggle, BasemapGallery, Expand, Compass, LayerList, Sketch, GraphicsLayer, geometryEngine, webMercatorUtils, Legend, Locate, Polygon) {
+      
+	  
+	  var measureThisAction = {
+        title: "Measure Length",
+        id: "measure-this",
+        image: "https://developers.arcgis.com/javascript/latest/sample-code/popup-actions/live/Measure_Distance16.png"
+      };
+	  
+      var popup1 = {
+        "title": "WILD Trout Stream Information: {NAME}",
+        "content": "<b>Stream Name:</b> {NAME} <br><b>Brook Trout:</b> {BROOK} <br><b>Rainbow Trout:</b> {RAINBOW} <br><b>Brown Trout:</b> {BROWN} <br>" ,
+		actions: [measureThisAction]
+      }
+      
+      var popup2 = {
+        "title": "STOCKED Trout Stream Information: {Waterbody}",
+        "content": "<b>Stream Name:</b> {Waterbody} <br><b>Stocking Schedule:</b> {StockSched}<br><b>Desgination:</b> {Designation}<br><b>Brook Trout:</b> {BrookTrout}<br><b>Rainbow Trout:</b> {RainbowTrout}<br><b>Brown Trout:</b> {BrownTrout}<br><b>Stocking Schedule:</b> https://dwr.virginia.gov/fishing/trout-stocking-schedule/<br><b>Notes:</b> {Notes}"
+      }
+	  
+	  //Popup for County / City bounary layer. I've omitted this for now as it's confusing to click a stream and get an unexpected county information popup instead. This can be reactivated
+	  //by just uncommenting out the below 4 lines and the popup 3 line for the CountyAdminBoundaries layer variable below.
+	  //var popup3 = {
+        //"title": "Admin Boundary Information {NAME}",
+        //"content": "<b>Admin Boundary Name:</b> {NAME} <br><b>FIPS Code:</b> {FIPS}"  
+      //}
+	  
+	  var popup4 = {
+        "title": "STOCKED Trout Lake Information: {Waterbody}",
+        "content": "<b>LakeName:</b> {Waterbody} <br><b>Stocking Schedule:</b> {StockSched} <br><b>Desgination:</b> {Designation}<br><b>Brook Trout:</b> {BrookTrout}<br><b>Rainbow Trout:</b> {RainbowTrout}<br><b>Brown Trout:</b> {BrownTrout}<br><b>Stocking Schedule:</b> https://dwr.virginia.gov/fishing/trout-stocking-schedule/<br><b>Notes:</b> {Notes}"  
+      }
+      
+      var wildtroutstreams = new FeatureLayer({
+        //*** Replace with your URL ***//
+        url: "https://services.dwr.virginia.gov/arcgis/rest/services/Projects/TroutApp/FeatureServer/2",
+        outFields: ["NAME","BROOK","BROWN","RAINBOW","NRCS_HUC","UPSTR_QUAD","DNSTR_QUAD","REACHCODE","STREAMCODE","CLASS","TYPE","USGS_HUC","Shape_STLe"],
+        popupTemplate: popup1
+      });
+      
+      var stockedtroutstreams = new FeatureLayer ({
+        url: "https://services.dwr.virginia.gov/arcgis/rest/services/Projects/TroutApp/FeatureServer/1",
+        outFields: ["Waterbody","County","StockSched","Designation","RainbowTrout","BrownTrout","BrookTrout","Notes","HeritageDay","NationalForest","StockingUrl","TroutAppLinkUrl","Designation_Lnk","Owner_Permit_Lnk","StockSched_Lnk"],
+        popupTemplate: popup2
+      });
+	  
+	  var stockedLakes = new FeatureLayer ({
+        url: "https://services.dwr.virginia.gov/arcgis/rest/services/Projects/TroutApp/FeatureServer/0",
+        outFields: ["Waterbody","County","StockSched","Designation","RainbowTrout","BrownTrout","BrookTrout","Notes","HeritageDay","NationalForest","StockingUrl","TroutAppLinkUrl","Designation_Lnk","Owner_Permit_Lnk","StockSched_Lnk"],
+        popupTemplate: popup4
+      });
+	  
+	  var CountyAdminBoundaries = new FeatureLayer ({
+        url: "https://apps.deq.virginia.gov/arcgis/rest/services/public/EDMA/MapServer/157",
+        outFields: ["NAME", "FIPS"],
+        //popupTemplate: popup3
+      });
+      const layer = new GraphicsLayer();
+
+      var map = new Map({
+        basemap: "hybrid",
+        //*** ADD ***//
+        layers: [wildtroutstreams, stockedtroutstreams, stockedLakes, CountyAdminBoundaries]
+      });
+
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-79.754,38.0020],
+      zoom: 8
+	  });
+	  
+	  view.ui.add(titleDiv, "top-left");
+	  
+	  var locateBtn = new Locate({
+        view: view
+      });
+	  
+	  view.ui.add(locateBtn, {
+        position: "top-left"
+      });
+	  
+	  function measureThis() {
+        var geom = view.popup.selectedFeature.geometry;
+        var distance = geometryEngine.geodesicLength(geom, "miles");
+        distance = parseFloat(Math.round(distance * 100) / 100).toFixed(2);
+        view.popup.content =
+          view.popup.selectedFeature.attributes.NAME +
+          "<div style='background-color:DarkGray;color:white'>" +
+          distance +
+          " miles.</div>";
+      }
+	  
+	  view.popup.on("trigger-action", function(event) {
+        // Execute the measureThis() function if the measure-this action is clicked
+        if (event.action.id === "measure-this") {
+        measureThis();
+        }
+      });
+	 
+      // Search widget
+      //var search = new Search({
+        //view: view
+      //});
+	  
+	  var search = new Search({
+        view: view,
+        allPlaceholder: "River or Address Search",
+        includeDefaultSources: true,
+        sources: [
+          {
+            layer: wildtroutstreams,
+            searchFields: ["NAME"],
+            displayField: "NAME",
+            exactMatch: false,
+            outFields: ["*"],
+            name: "Wild Trout Streams",
+            placeholder: "example: Rapidan River"
+          },
+          {
+            layer: stockedtroutstreams,
+            searchFields: ["Waterbody"],
+			displayField: "Waterbody",
+            exactMatch: false,
+            outFields: ["*"],
+			name: "Stocked Trout Streams",
+			placeholder: "example: Mossy Creek"
+		  },
+		  {
+            layer: stockedLakes,
+            searchFields: ["Waterbody"],
+			displayField: "Waterbody",
+            exactMatch: false,
+            outFields: ["*"],
+			name: "Stocked Trout Lakes and Reservoirs",
+			placeholder: "example: Mink Creek Reservoir"
+		  }
+        ]
+      });
+
+      view.ui.add(search, "top-left");
+      
+      const sketch = new Sketch({
+        layer: layer,
+        view: view,
+          // graphic will be selected as soon as it is created
+        creationMode: "update",
+        visibleElements: {
+          createTools: {
+          circle: false,
+          rectangle: false
+          }
+        }
+      });
+      
+      
+      function showCoordinates(pt) {
+        var coords = "Lon/Lat " + pt.longitude.toFixed(5) + " " + pt.latitude.toFixed(5) +
+            " | Scale 1:" + Math.round(view.scale * 1) / 1 +
+            " | Zoom " + view.zoom;
+        coordsWidget.innerHTML = coords;
+      }
+      
+      view.watch("stationary", function(isStationary) {
+        showCoordinates(view.center);
+      });
+
+      view.on("pointer-move", function(evt) {
+        showCoordinates(view.toMap({ x: evt.x, y: evt.y }));
+      });
+      
+      var coordsWidget = document.createElement("div");
+      coordsWidget.id = "coordsWidget";
+      coordsWidget.className = "esri-widget esri-component";
+      coordsWidget.style.padding = "7px 15px 5px";
+
+      view.ui.add(coordsWidget, "bottom-right");
+      
+      var basemapGallery = new BasemapGallery({
+        view: view,
+        container: document.createElement("div")
+      });
+      
+      var bgExpand = new Expand({
+        view: view,
+        content: basemapGallery
+      });
+      view.ui.add(bgExpand, "bottom-left");
+      
+      var compassWidget = new Compass({
+        view:view
+      });
+      
+      view.ui.add(compassWidget, "bottom-trailing");
+      
+      view.when(function () {
+          var layerList = new LayerList({
+            view: view,
+			listItemCreatedFunction: function(event) {
+				const item = event.item;
+				if (item.layer.type != "group") {
+				// don't show legend twice
+					item.panel = {
+						content: "legend",
+						open: true
+					};
+				}
+			}
+          });
+          view.ui.add(layerList, "top-trailing");
+      });
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      let coords = urlParams.get("coords").split(",").map(Number);
+      let zoomLevel = urlParams.get("zoomLevel");
+      console.log(`zoom level ${zoomLevel} at ${coords}`);
+      view.goTo({
+        center: [coords],
+        zoom: zoomLevel
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="viewDiv"></div>
+	<div id="titleDiv" class="esri-widget">
+          Virginia Trout Finder
+    </div>
+</body>
+</html>
